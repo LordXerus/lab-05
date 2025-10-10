@@ -5,6 +5,7 @@ import android.app.Dialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.view.View;
+import android.widget.Button;
 import android.widget.EditText;
 
 import androidx.annotation.NonNull;
@@ -15,7 +16,7 @@ import java.util.Objects;
 
 public class CityDialogFragment extends DialogFragment {
     interface CityDialogListener {
-        void updateCity(City city, String title, String year);
+        void updateOrDeleteCity(City city, String title, String year, boolean delete);
         void addCity(City city);
     }
     private CityDialogListener listener;
@@ -61,7 +62,7 @@ public class CityDialogFragment extends DialogFragment {
             city = null;}
 
         AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-        return builder
+        AlertDialog alertDialog = builder
                 .setView(view)
                 .setTitle("City Details")
                 .setNegativeButton("Cancel", null)
@@ -69,11 +70,40 @@ public class CityDialogFragment extends DialogFragment {
                     String title = editMovieName.getText().toString();
                     String year = editMovieYear.getText().toString();
                     if (Objects.equals(tag, "City Details")) {
-                        listener.updateCity(city, title, year);
+                        listener.updateOrDeleteCity(city, title, year, false);
                     } else {
                         listener.addCity(new City(title, year));
                     }
-                })
+                }).setNeutralButton("Delete", ((dialog, which) -> {
+                    if (Objects.equals(tag, "City Details")) {
+                        listener.updateOrDeleteCity(city, "<deleted>", "<deleted>", true);
+                    }
+                }))
                 .create();
+
+        alertDialog.setOnShowListener(dlg -> {
+            Button continueButton = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
+            continueButton.setOnClickListener(v -> {
+                String title = editMovieName.getText().toString().trim();
+                String year = editMovieYear.getText().toString().trim();
+
+                if (title.isEmpty()) {
+                    editMovieName.setError("Name cannot be empty");
+                    return; // stop here, don't close dialog
+                }
+
+                if (Objects.equals(tag, "City Details")) {
+                    listener.updateOrDeleteCity(city, title, year, false);
+                } else {
+                    listener.addCity(new City(title, year));
+                }
+
+                alertDialog.dismiss(); // close only if valid
+            });
+        });
+
+        return alertDialog;
+
+
     }
 }

@@ -1,6 +1,7 @@
 package com.example.lab5_starter;
 
 import android.os.Bundle;
+import android.util.Log;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
@@ -11,6 +12,12 @@ import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 
+import com.google.firebase.firestore.CollectionReference;
+import com.google.firebase.firestore.DocumentChange;
+import com.google.firebase.firestore.DocumentReference;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.QueryDocumentSnapshot;
+
 import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity implements CityDialogFragment.CityDialogListener {
@@ -20,6 +27,9 @@ public class MainActivity extends AppCompatActivity implements CityDialogFragmen
 
     private ArrayList<City> cityArrayList;
     private ArrayAdapter<City> cityArrayAdapter;
+
+    private FirebaseFirestore db;
+    private CollectionReference citiesRef;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,39 +51,79 @@ public class MainActivity extends AppCompatActivity implements CityDialogFragmen
         cityArrayAdapter = new CityArrayAdapter(this, cityArrayList);
         cityListView.setAdapter(cityArrayAdapter);
 
-        addDummyData();
+        // addDummyData();
 
         // set listeners
         addCityButton.setOnClickListener(view -> {
             CityDialogFragment cityDialogFragment = new CityDialogFragment();
-            cityDialogFragment.show(getSupportFragmentManager(),"Add City");
+            cityDialogFragment.show(getSupportFragmentManager(), "Add City");
         });
 
         cityListView.setOnItemClickListener((adapterView, view, i, l) -> {
             City city = cityArrayAdapter.getItem(i);
             CityDialogFragment cityDialogFragment = CityDialogFragment.newInstance(city);
-            cityDialogFragment.show(getSupportFragmentManager(),"City Details");
+            cityDialogFragment.show(getSupportFragmentManager(), "City Details");
+        });
+
+        db = FirebaseFirestore.getInstance();
+        citiesRef = db.collection("cities");
+
+        citiesRef.addSnapshotListener((value, error) -> {
+            if (error != null) {
+                Log.e("Firestore", error.toString());
+            }
+            if (value != null && !value.isEmpty()) {
+                cityArrayList.clear();
+                for (QueryDocumentSnapshot snapshot : value) {
+                    String name = snapshot.getString("name");
+                    String province = snapshot.getString("province");
+
+                    cityArrayList.add(new City(name, province));
+                }
+                cityArrayAdapter.notifyDataSetChanged();
+            }
         });
 
     }
 
     @Override
-    public void updateCity(City city, String title, String year) {
-        city.setName(title);
-        city.setProvince(year);
+    public void updateOrDeleteCity(City city, String title, String year, boolean delete) {
+        String oldName = city.getName();
+
+        if(delete) {
+            cityArrayList.remove(city);
+        } else {
+            city.setName(title);
+            city.setProvince(year);
+        }
         cityArrayAdapter.notifyDataSetChanged();
 
+
         // Updating the database using delete + addition
+        // --- Firestore update ---
+        // 1. Delete the old document (since ID = old name)
+        citiesRef.document(oldName)
+                .delete()
+                .addOnSuccessListener(aVoid -> {
+                    if (!delete) {
+                        // 2. Add the updated city as a new document
+                        citiesRef.document(city.getName()).set(city);
+                    }
+                })
+                .addOnFailureListener(e -> Log.w("Firestore", "Error updating city", e));
     }
 
     @Override
-    public void addCity(City city){
+    public void addCity(City city) {
         cityArrayList.add(city);
         cityArrayAdapter.notifyDataSetChanged();
 
+        DocumentReference documentReference = citiesRef.document(city.getName());
+        documentReference.set(city);
+
     }
 
-    public void addDummyData(){
+    public void addDummyData() {
         City m1 = new City("Edmonton", "AB");
         City m2 = new City("Vancouver", "BC");
         cityArrayList.add(m1);
