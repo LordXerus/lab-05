@@ -17,11 +17,13 @@ import java.util.Objects;
 public class CityDialogFragment extends DialogFragment {
     interface CityDialogListener {
         void updateOrDeleteCity(City city, String title, String year, boolean delete);
+
         void addCity(City city);
     }
+
     private CityDialogListener listener;
 
-    public static CityDialogFragment newInstance(City city){
+    public static CityDialogFragment newInstance(City city) {
         Bundle args = new Bundle();
         args.putSerializable("City", city);
 
@@ -33,10 +35,9 @@ public class CityDialogFragment extends DialogFragment {
     @Override
     public void onAttach(@NonNull Context context) {
         super.onAttach(context);
-        if (context instanceof CityDialogListener){
+        if (context instanceof CityDialogListener) {
             listener = (CityDialogListener) context;
-        }
-        else {
+        } else {
             throw new RuntimeException("Implement listener");
         }
     }
@@ -52,17 +53,17 @@ public class CityDialogFragment extends DialogFragment {
         Bundle bundle = getArguments();
         City city;
 
-        if (Objects.equals(tag, "City Details") && bundle != null){
+        if (Objects.equals(tag, "City Details") && bundle != null) {
             city = (City) bundle.getSerializable("City");
             assert city != null;
             editMovieName.setText(city.getName());
             editMovieYear.setText(city.getProvince());
+        } else {
+            city = null;
         }
-        else {
-            city = null;}
 
         AlertDialog.Builder builder = new AlertDialog.Builder(getContext());
-        AlertDialog alertDialog = builder
+        builder
                 .setView(view)
                 .setTitle("City Details")
                 .setNegativeButton("Cancel", null)
@@ -74,12 +75,14 @@ public class CityDialogFragment extends DialogFragment {
                     } else {
                         listener.addCity(new City(title, year));
                     }
-                }).setNeutralButton("Delete", ((dialog, which) -> {
-                    if (Objects.equals(tag, "City Details")) {
-                        listener.updateOrDeleteCity(city, "<deleted>", "<deleted>", true);
-                    }
-                }))
-                .create();
+                });
+
+        if (Objects.equals(tag, "City Details")) {
+            builder.setNeutralButton("Delete", ((dialog, which) -> {
+                listener.updateOrDeleteCity(city, "<deleted>", "<deleted>", true);
+            }));
+        }
+        AlertDialog alertDialog = builder.create();
 
         alertDialog.setOnShowListener(dlg -> {
             Button continueButton = alertDialog.getButton(AlertDialog.BUTTON_POSITIVE);
